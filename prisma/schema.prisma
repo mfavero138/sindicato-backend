@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,11 +9,50 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String?
-  email     String   @unique
-  password  String
-  role      String   @default("MEMBER")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  role         Role      @default(USER)
+  totpSecret   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  votes        Vote[]
+}
+
+model Motion {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String
+  createdAt   DateTime  @default(now())
+
+  votes       Vote[]
+}
+
+model Vote {
+  id          Int       @id @default(autoincrement())
+  choice      Choice
+  userId      Int
+  motionId    Int
+  timestamp   DateTime  @default(now())
+  deviceModel String?
+  ip          String?
+  imei        String?
+
+  user   User   @relation(fields: [userId], references: [id])
+  motion Motion @relation(fields: [motionId], references: [id])
+
+  @@unique([userId, motionId]) // um voto por usuário por pauta
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum Choice {
+  SIM
+  NAO
+  ABSTENCAO
 }
