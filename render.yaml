@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sindicato-backend
+    env: node
+    plan: free
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && node dist/index.js
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SETUP_TOKEN
+        sync: false
