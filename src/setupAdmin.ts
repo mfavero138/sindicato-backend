@@ -1,3 +1,4 @@
+// src/setupAdmin.ts
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -24,7 +25,6 @@ async function main() {
         passwordHash: hash,
         name: "Administrador",
         role: "ADMIN",
-        // ajuste outros campos conforme seu schema
       },
     });
     console.log(`[setupAdmin] Admin criado: ${user.email}`);
