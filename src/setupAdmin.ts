@@ -1,36 +1,56 @@
-import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
-const router = Router();
 
-// GET /setup-admin?token=XYZ&email=admin@sindicato.org&password=123456&name=Administrador
-router.get("/", async (req, res) => {
-  try {
-    const setupToken = process.env.SETUP_TOKEN;
-    if (!setupToken) return res.status(403).json({ error: "SETUP desativado (defina SETUP_TOKEN)" });
-    const token = String(req.query.token || "");
-    if (token !== setupToken) return res.status(401).json({ error: "Token inválido" });
+async function main() {
+  const email = process.env.SEED_ADMIN_EMAIL;
+  const password = process.env.SEED_ADMIN_PASSWORD;
 
-    const email = String(req.query.email || "").toLowerCase();
-    const password = String(req.query.password || "");
-    const name = String(req.query.name || "Administrador");
-    if (!email || !password) return res.status(400).json({ error: "Parâmetros obrigatórios: email, password" });
-
-    let user = await prisma.user.findUnique({ where: { email } as any });
-    if (user) return res.json({ status: "ok", message: "Usuário já existe", email });
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    user = await prisma.user.create({
-      data: { name, email, password: passwordHash, role: "ADMIN" } as any
-    });
-
-    return res.json({ status: "ok", message: "ADMIN criado com sucesso", email: user.email });
-  } catch (err: any) {
-    console.error("setup-admin error:", err);
-    return res.status(500).json({ error: err?.message || "Erro interno" });
+  if (!email || !password) {
+    console.log("[setupAdmin] SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD não definidos — pulando seed.");
+    return;
   }
-});
 
-export default router;
+  const existing = await prisma.user.findUnique({ where: { email } });
+
+  if (existing) {
+    console.log(`[setupAdmin] Usuário admin já existe: ${email}`);
+  } else {
+    const hash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: hash,
+        name: "Administrador",
+        role: "ADMIN",
+        // ajuste outros campos conforme seu schema
+      },
+    });
+    console.log(`[setupAdmin] Admin criado: ${user.email}`);
+  }
+
+  // Semear algumas pautas (motions) de teste se estiver vazio
+  const motionsCount = await prisma.motion.count();
+  if (motionsCount === 0) {
+    await prisma.motion.createMany({
+      data: [
+        { title: "Aprovar ata da última assembleia", description: "Leitura e aprovação da ata anterior." },
+        { title: "Definição do reajuste 2025", description: "Proposta da diretoria para reajuste anual." },
+        { title: "Aquisição de equipamentos", description: "Votação para compra de novos equipamentos de TI." }
+      ],
+    });
+    console.log("[setupAdmin] Pautas de teste criadas.");
+  } else {
+    console.log("[setupAdmin] Pautas já existentes — semear ignorado.");
+  }
+}
+
+main()
+  .catch((e) => {
+    console.error("[setupAdmin] Erro:", e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
